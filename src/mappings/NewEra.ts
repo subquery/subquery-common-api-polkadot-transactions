@@ -21,7 +21,7 @@ export async function handleNewEra(event: SubstrateEvent): Promise<void> {
     let validatorIdString = validatorId.toString();
     const eraValidatorInfo = EraValidatorInfo.create({
       id: eventId(event) + validatorIdString,
-      era: currentEra,
+      era: currentEra.toNumber(),
       address: validatorIdString,
       total: exposure.total.toBigInt(),
       own: exposure.own.toBigInt(),

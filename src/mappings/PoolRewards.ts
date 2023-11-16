@@ -7,6 +7,7 @@ import {
 } from "../types";
 import { SubstrateEvent } from "@subql/types";
 import { Codec } from "@polkadot/types/types";
+import { u32 } from '@polkadot/types-codec';
 import { INumber } from "@polkadot/types-codec/types/interfaces";
 import { PalletNominationPoolsPoolMember } from "@polkadot/types/lookup";
 import {
@@ -92,10 +93,7 @@ async function updateAccountPoolRewards(
     amount.toBigInt(),
     rewardType,
     accumulatedAmount,
-    (element: AccountPoolReward) => {
-      element.poolId = poolId.toNumber();
-      return element;
-    }
+    poolId.toNumber(),
   );
 }
 
@@ -111,7 +109,7 @@ export async function handlePoolBondedSlash(
 
   const pool = (await api.query.nominationPools.bondedPools(poolId)).unwrap();
 
-  const members = await api.query.nominationPools.poolMembers.entries();
+  // const members = await api.query.nominationPools.poolMembers.entries();
 
   await handleRelaychainPooledStakingSlash(
     bondedSlashEvent,
@@ -141,7 +139,7 @@ export async function handlePoolUnbondingSlash(
     await api.query.nominationPools.subPoolsStorage(poolIdNumber)
   ).unwrap();
 
-  const pool = unbondingPools.withEra[eraIdNumber] ?? unbondingPools.noEra;
+  const pool = unbondingPools.withEra.get(eraIdNumber as unknown as u32) ?? unbondingPools.noEra;
 
   await handleRelaychainPooledStakingSlash(
     unbondingSlashEvent,
@@ -149,7 +147,7 @@ export async function handlePoolUnbondingSlash(
     pool.points.toBigInt(),
     slash.toBigInt(),
     (member: PalletNominationPoolsPoolMember): bigint => {
-      return member.unbondingEras[eraIdNumber]?.toBigInt() ?? BigInt(0);
+      return member.unbondingEras.get(eraIdNumber as unknown as u32)?.toBigInt() ?? BigInt(0);
     }
   );
 }
@@ -194,10 +192,7 @@ async function handleRelaychainPooledStakingSlash(
             personalSlash,
             RewardType.slash,
             accumulatedReward.amount,
-            (element: AccountPoolReward) => {
-              element.poolId = poolId;
-              return element;
-            }
+            poolId,
           );
         }
       }
@@ -225,8 +220,8 @@ async function handlePoolSlashForTxHistory(
     id: eventId,
     timestamp: blockTimestamp,
     blockNumber: block.block.header.number.toNumber(),
-    extrinsicHash: extrinsic !== undefined ? extrinsic.extrinsic.hash.toString() : null;
-    extrinsicIdx: extrinsic !== undefined ? extrinsic.idx : null;
+    extrinsicHash: extrinsic !== undefined ? extrinsic.extrinsic.hash.toString() : null,
+    extrinsicIdx: extrinsic !== undefined ? extrinsic.idx : null,
     address: accountId,
     poolReward: {
       eventIdx: slashEvent.idx,

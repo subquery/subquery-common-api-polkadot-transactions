@@ -285,7 +285,7 @@ async function handleSlashForTxHistory(
     validatorsSet = new Set(validatorsInSlashEra);
   }
 
-  const initialValidator = null;
+  const initialValidator: any = null;
 
   await buildRewardEvents(
     slashEvent.block,
@@ -356,16 +356,16 @@ async function buildRewardEvents<A>(
         eventIndex.toString()
       );
 
-      const element = new HistoryElement(eventId);
-
-      element.timestamp = blockTimestamp;
-
       const accountAddress = account.toString();
       const destinationAddress = accountsMapping[accountAddress];
-      element.address =
-        destinationAddress != undefined ? destinationAddress : accountAddress;
 
-      element.blockNumber = block.block.header.number.toNumber();
+      const element = new HistoryElement(
+        eventId,
+        block.block.header.number.toNumber(),
+        blockTimestamp,
+        destinationAddress != undefined ? destinationAddress : accountAddress
+      );
+
       if (extrinsic !== undefined) {
         element.extrinsicHash = extrinsic.extrinsic.hash.toString();
         element.extrinsicIdx = extrinsic.idx;
@@ -422,9 +422,7 @@ async function updateAccountRewards(
     (amount as unknown as Balance).toBigInt(),
     rewardType,
     accumulatedAmount,
-    (element: AccountReward) => {
-      return element;
-    }
+    null, // Not used on AccountReward
   );
 }
 
@@ -479,7 +477,7 @@ interface AccumulatedInterface {
 }
 
 interface AccumulatedInterfaceStatic<BaseType extends AccumulatedInterface> {
-  new (id: string): BaseType;
+  new (id: string, amount: bigint): BaseType;
   get(accountAddress: string): Promise<BaseType | undefined>;
 }
 
@@ -496,8 +494,7 @@ export async function updateAccumulatedGenericReward<
 
   let accumulatedReward = await AccumulatedRewardTypeObject.get(accountAddress);
   if (!accumulatedReward) {
-    accumulatedReward = new AccumulatedRewardTypeObject(accountAddress);
-    accumulatedReward.amount = BigInt(0);
+    accumulatedReward = new AccumulatedRewardTypeObject(accountAddress, BigInt(0));
   }
   accumulatedReward.amount =
     accumulatedReward.amount + (isReward ? amount : -amount);
@@ -515,9 +512,12 @@ export async function handleGenericForTxHistory(
   const blockTimestamp = timestamp(block);
   const eventId = eventIdFromBlockAndIdx(blockNumber, event.idx.toString());
 
-  const element = new HistoryElement(eventId);
-  element.timestamp = blockTimestamp;
-  element.blockNumber = block.block.header.number.toNumber();
+  const element = new HistoryElement(
+    eventId,
+    block.block.header.number.toNumber(),
+    blockTimestamp,
+    null
+  );
   if (extrinsic !== undefined) {
     element.extrinsicHash = extrinsic.extrinsic.hash.toString();
     element.extrinsicIdx = extrinsic.idx;
@@ -545,7 +545,16 @@ interface AccountRewardsInterface {
 interface AccountRewardsInterfaceStatic<
   BaseType extends AccountRewardsInterface
 > {
-  new (id: string): BaseType;
+  new (
+    id: string,
+    address: string,
+    blockNumber: number,
+    timestamp: bigint,
+    amount: bigint,
+    accumulatedAmount: bigint,
+    type: RewardType,
+    poolId: number
+  ): BaseType;
   get(accountAddress: string): Promise<BaseType | undefined>;
 }
 
@@ -559,15 +568,19 @@ export async function updateGenericAccountRewards<
   amount: bigint,
   rewardType: RewardType,
   accumulatedAmount: bigint,
-  fillEventData: (element: AccountRewardsType) => AccountRewardsType
+  poolId: number,
 ): Promise<void> {
   let id = eventIdWithAddress(event, accountAddress);
-  let accountReward = new AccountRewardsTypeObject(id);
-  accountReward.accumulatedAmount = accumulatedAmount;
-  accountReward.address = accountAddress;
-  accountReward.amount = amount;
-  accountReward.type = rewardType;
-  accountReward.timestamp = timestamp(event.block);
-  accountReward.blockNumber = blockNumber(event);
-  await fillEventData(accountReward).save();
+  let accountReward = new AccountRewardsTypeObject(
+    id,
+    accountAddress,
+    blockNumber(event),
+    timestamp(event.block),
+    amount,
+    accumulatedAmount,
+    rewardType,
+    poolId,
+  );
+
+  await accountReward.save();
 }
