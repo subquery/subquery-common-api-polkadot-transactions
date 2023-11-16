@@ -20,22 +20,22 @@ type AssetTransfer @jsonField {
 type Reward @jsonField {
   eventIdx: Int!
   amount: String!
-  isReward: Boolean!,
-  era: Int,
-  stash: String,
+  isReward: Boolean!
+  era: Int
+  stash: String
   validator: String
 }
 
 type PoolReward @jsonField {
   eventIdx: Int!
   amount: String!
-  isReward: Boolean!,
+  isReward: Boolean!
   poolId: Int!
 }
 
 enum RewardType {
   reward
-  slash  
+  slash
 }
 
 type AccountReward @entity {

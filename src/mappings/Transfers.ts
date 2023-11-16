@@ -84,7 +84,7 @@ export async function handleOrmlTransfer(event: SubstrateEvent): Promise<void> {
 }
 
 export async function handleEquilibriumTransfer(
-    event: SubstrateEvent
+  event: SubstrateEvent
 ): Promise<void> {
   const [from, to, assetId, amount] = getEventData(event);
 
@@ -129,22 +129,28 @@ async function createTransfer({
   amount,
   assetId = null,
 }: TransferPayload) {
-  const element = new HistoryElement(`${eventId(event)}${suffix}`);
-  element.address = address.toString();
-  element.timestamp = timestamp(event.block);
-  element.blockNumber = blockNumber(event);
+  let extrinsicHash = undefined;
+
   if (event.extrinsic !== undefined) {
     if (isEvmTransaction(event.extrinsic.extrinsic.method)) {
       const executedEvent = event.extrinsic.events.find(isEvmExecutedEvent);
-      element.extrinsicHash =
+      extrinsicHash =
         executedEvent?.event.data?.[2]?.toString() ||
         event.extrinsic.extrinsic.hash.toString();
     } else {
-      element.extrinsicHash = event.extrinsic.extrinsic.hash.toString();
+      extrinsicHash = event.extrinsic.extrinsic.hash.toString();
     }
-
-    element.extrinsicIdx = event.extrinsic.idx;
   }
+
+  const element = HistoryElement.create({
+    id: `${eventId(event)}${suffix}`,
+    address: address.toString(),
+    timestamp: timestamp(event.block),
+    blockNumber: blockNumber(event),
+    extrinsicIdx:
+      event.extrinsic !== undefined ? event.extrinsic.idx : undefined,
+    extrinsicHash,
+  });
 
   const transfer = {
     amount: amount.toString(),
@@ -153,7 +159,7 @@ async function createTransfer({
     fee: calculateFeeAsString(event.extrinsic, from.toString()),
     eventIdx: event.idx,
     success: true,
-  }
+  };
 
   if (assetId) {
     element.assetTransfer = {
@@ -161,7 +167,7 @@ async function createTransfer({
       assetId: assetId,
     };
   } else {
-    element.transfer = transfer
+    element.transfer = transfer;
   }
 
   await element.save();
