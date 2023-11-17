@@ -47,6 +47,7 @@
   "exports": {
     "acalaChaintypes": "./chainTypes/acalaChaintypes.ts",
     "alephZeroChaintypes": "./chainTypes/alephZeroChaintypes.ts",
+    "astarChaintypes": "./chainTypes/astarChaintypes.ts",
     "basiliskChaintypes": "./chainTypes/basiliskChaintypes.ts",
     "centrifugeChaintypes": "./chainTypes/centrifugeChaintypes.ts",
     "encointerChaintypes": "./chainTypes/encointerChaintypes.ts",
