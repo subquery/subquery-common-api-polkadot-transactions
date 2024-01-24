@@ -59,13 +59,13 @@ function extractArgsFromPayoutValidator(
 }
 
 export async function handleRewarded(
-  rewardEvent: SubstrateEvent<[accountId: Codec, reward: INumber]>,
+  rewardEvent: SubstrateEvent<[accountId: Codec, receiver:any, reward: INumber]>,
 ): Promise<void> {
   await handleReward(rewardEvent);
 }
 
 export async function handleReward(
-  rewardEvent: SubstrateEvent<[accountId: Codec, reward: INumber]>,
+  rewardEvent: SubstrateEvent<[accountId: Codec, receiver: any, reward: INumber]>,
 ): Promise<void> {
   await handleRewardForTxHistory(rewardEvent);
   let accumulatedReward = await updateAccumulatedReward(rewardEvent, true);
@@ -223,13 +223,13 @@ function determinePayoutCallsArgs(
 }
 
 export async function handleSlashed(
-  slashEvent: SubstrateEvent<[accountId: Codec, slash: INumber]>,
+  slashEvent: SubstrateEvent<[accountId: Codec, receiver: any, slash: INumber]>,
 ): Promise<void> {
   await handleSlash(slashEvent);
 }
 
 export async function handleSlash(
-  slashEvent: SubstrateEvent<[accountId: Codec, slash: INumber]>,
+  slashEvent: SubstrateEvent<[accountId: Codec, receiver: any, slash: INumber]>,
 ): Promise<void> {
   await handleSlashForTxHistory(slashEvent);
   let accumulatedReward = await updateAccumulatedReward(slashEvent, false);
@@ -378,18 +378,19 @@ async function buildRewardEvents<A>(
 }
 
 async function updateAccumulatedReward(
-  event: SubstrateEvent<[accountId: Codec, reward: INumber]>,
+  event: SubstrateEvent<[accountId: Codec, receiver: any, reward: INumber]>,
   isReward: boolean,
 ): Promise<AccumulatedReward> {
   let {
     event: {
-      data: [accountId, amount],
+      data: [accountId, receiver, amount],
     },
   } = event;
+
   return await updateAccumulatedGenericReward(
     AccumulatedReward,
     accountId.toString(),
-    (amount as unknown as Balance).toBigInt(),
+    BigInt(amount as unknown as number),
     isReward,
   );
 }
@@ -401,7 +402,7 @@ async function updateAccountRewards(
 ): Promise<void> {
   let {
     event: {
-      data: [accountId, amount],
+      data: [accountId, receiver, amount],
     },
   } = event;
 
@@ -412,7 +413,7 @@ async function updateAccountRewards(
     accountAddress,
     blockNumber(event),
     timestamp(event.block),
-    (amount as unknown as Balance).toBigInt(),
+    BigInt(amount as unknown as number),
     accumulatedAmount,
     rewardType,
   );
@@ -454,7 +455,7 @@ async function handleParachainRewardForTxHistory(
 }
 
 export async function handleParachainRewarded(
-  rewardEvent: SubstrateEvent<[accountId: Codec, reward: INumber]>,
+  rewardEvent: SubstrateEvent<[accountId: Codec, receiver: any, reward: INumber]>,
 ): Promise<void> {
   await handleParachainRewardForTxHistory(rewardEvent);
   let accumulatedReward = await updateAccumulatedReward(rewardEvent, true);
