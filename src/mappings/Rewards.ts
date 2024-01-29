@@ -306,48 +306,67 @@ async function buildRewardEvents<A>(
     await Promise.allSettled(savingPromises);
 }
 
-async function updateAccumulatedReward(event: SubstrateEvent<[accountId: Codec, reward: INumber]>, isReward: boolean): Promise<AccumulatedReward> {
-    let {event: {data: [accountId, amount]}} = event
-    return await updateAccumulatedGenericReward(AccumulatedReward, accountId.toString(), (amount as unknown as Balance).toBigInt(), isReward)
+async function updateAccumulatedReward(
+  event: SubstrateEvent,
+  isReward: boolean,
+): Promise<AccumulatedReward> {
+  let [accountId, amount] = decodeDataFromReward(event);
+  return await updateAccumulatedGenericReward(
+    AccumulatedReward,
+    accountId.toString(),
+    (amount as unknown as Balance).toBigInt(),
+    isReward,
+  );
 }
 
-async function updateAccountRewards(event: SubstrateEvent, rewardType: RewardType, accumulatedAmount: bigint): Promise<void> {
-    let { event: { data: [accountId, amount] } } = event
-
-    const accountAddress = accountId.toString()
-    let id = eventIdWithAddress(event, accountAddress)
-    let accountReward = new AccountReward(
-        id,
-        accountAddress,
-        blockNumber(event),
-        timestamp(event.block),
-        (amount as unknown as Balance).toBigInt(),
-        accumulatedAmount,
-        rewardType
-    );
-    await accountReward.save()
+async function updateAccountRewards(
+  event: SubstrateEvent,
+  rewardType: RewardType,
+  accumulatedAmount: bigint,
+): Promise<void> {
+  let [accountId, amount] = decodeDataFromReward(event);
+  const accountAddress = accountId.toString();
+  let id = eventIdWithAddress(event, accountAddress);
+  let accountReward = new AccountReward(
+    id,
+    accountAddress,
+    blockNumber(event),
+    timestamp(event.block),
+    (amount as unknown as Balance).toBigInt(),
+    accumulatedAmount,
+    rewardType,
+  );
+  await accountReward.save();
 }
 
-async function handleParachainRewardForTxHistory(rewardEvent: SubstrateEvent): Promise<void> {
-    const {event: {data: [account, amount]}} = rewardEvent
-    handleGenericForTxHistory(rewardEvent, account.toString(), async (element: HistoryElement) => {
-        const eraIndex = await cachedStakingRewardEraIndex(rewardEvent)
+async function handleParachainRewardForTxHistory(
+  rewardEvent: SubstrateEvent,
+): Promise<void> {
+  let [account, amount] = decodeDataFromReward(rewardEvent);
+  handleGenericForTxHistory(
+    rewardEvent,
+    account.toString(),
+    async (element: HistoryElement) => {
+      const eraIndex = await cachedStakingRewardEraIndex(rewardEvent);
 
-        const validatorEvent = rewardEvent.block.events.find(event =>
-            event.event.section == rewardEvent.event.section && 
-            event.event.method == rewardEvent.event.method
-        )
-        const validatorId = validatorEvent?.event.data[0].toString()
-        element.reward = {eventIdx: rewardEvent.idx,
-            amount: amount.toString(),
-            isReward: true,
-            stash: account.toString(),
-            validator: validatorId,
-            era: eraIndex
-        }
-    
-        return element       
-    })
+      const validatorEvent = rewardEvent.block.events.find(
+        (event) =>
+          event.event.section == rewardEvent.event.section &&
+          event.event.method == rewardEvent.event.method,
+      );
+      const validatorId = validatorEvent?.event.data[0].toString();
+      element.reward = {
+        eventIdx: rewardEvent.idx,
+        amount: amount.toString(),
+        isReward: true,
+        stash: account.toString(),
+        validator: validatorId,
+        era: eraIndex,
+      };
+
+      return element;
+    },
+  );
 }
 
 export async function handleParachainRewarded (rewardEvent: SubstrateEvent<[accountId: Codec, reward: INumber]>): Promise<void> {
@@ -416,4 +435,19 @@ interface AccountRewardsInterface {
 
     type: RewardType;
     save() : Promise<void>
+}
+
+function decodeDataFromReward(event: SubstrateEvent): [Codec, Codec] {
+  // In early version staking.Reward data only have 2 parameters [accountId, amount]
+  // Now rewarded changed to https://polkadot.js.org/docs/substrate/events/#rewardedaccountid32-palletstakingrewarddestination-u128
+  // And we can direct access property from data
+  let accountId: Codec;
+  let amount: Codec;
+  if (event.event.data.length === 2) {
+    [accountId, amount] = event.event.data;
+  } else {
+    accountId = (event.event.data as any).stash;
+    amount = (event.event.data as any).amount;
+  }
+  return [accountId, amount];
 }
